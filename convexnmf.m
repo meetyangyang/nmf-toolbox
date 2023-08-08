@@ -61,26 +61,38 @@ function [W, H, G, cost] = convexnmf(V, num_basis_elems, config)
 
 % Check if configuration structure is given.
 if nargin < 3
-	config = struct;
+    config = struct;
 end
 
 config = ValidateParameters('convexnmf', config, V, num_basis_elems);
 
+[m, n] = size(V);
+num_frames = size(V, 2);
+
+% Initialize G
 if ~isfield(config, 'G_init') || isempty(config.G_init)
-    config.G_init = rand(num_points, num_basis_elems, num_frames);    
+    % Use K-means clustering to initialize G
+    num_points = size(V, 1);
+    [~, G] = kmeans(V', num_basis_elems);
+    G = G';
+    G = G + 0.2; % Add 0.2 to avoid zero values
+else
+    G = config.G_init;
 end
 
-if ~isfield(config, 'G_fixed')
-    config.G_fixed = false;
+% Initialize H
+if ~isfield(config, 'H_init') || isempty(config.H_init)
+    % Use K-means clustering to initialize H
+    [~, H] = kmeans(V, num_basis_elems);
+    H = H + 0.2; % Add 0.2 to avoid zero values
+else
+    H = config.H_init;
 end
 
-if ~isfield(config, 'G_sparsity') || isempty(config.G_sparsity)
-    config.G_sparsity = 0;
-end
-
-G = config.G_init;
-H = config.H_init;
+% Normalize G
 G = G * diag(1 ./ sum(G, 1));
+
+% Initialize W
 W = V * G;
 
 V_V_pos = 0.5 * (abs(V' * V) + V' * V);
